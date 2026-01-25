@@ -37,7 +37,12 @@ Vagrant.configure('2') do |config|
     server.vm.provider PROVIDER do |vbox|
       vm_specs(vbox, SERVER)
     end
-    server.vm.provision PROVISION, path: SCRIPT, env: { 'K3S_ROLE' => 'server', 'NODE_IP' => IPS[SERVER] }
+    server.vm.provision PROVISION,
+    path: SCRIPT,
+    env: {
+      'K3S_ROLE' => 'server',
+      'NODE_IP' => IPS[SERVER]
+    }
   end
 
   config.vm.define WORKER do |worker|
@@ -46,7 +51,12 @@ Vagrant.configure('2') do |config|
     worker.vm.provider PROVIDER do |vbox|
       vm_specs(vbox, WORKER)
     end
-    worker.vm.provision PROVISION, path: SCRIPT, env: { 'K3S_ROLE' => 'worker', 'NODE_IP' => IPS[WORKER] }
+    server.vm.provision PROVISION,
+    path: SCRIPT,
+    env: {
+      'K3S_ROLE' => 'worker',
+      'NODE_IP' => IPS[WORKER]
+    }
   end
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
