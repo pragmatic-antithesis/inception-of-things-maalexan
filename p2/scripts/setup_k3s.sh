@@ -1,6 +1,6 @@
 #!/bin/ash
 
-sudo ip addr replace ${NODE_IP}/24 brd 192.168.56.255 dev eth1
+ip addr replace ${NODE_IP}/24 brd 192.168.56.255 dev eth1
 ip link set eth1 up
 ip route replace 192.168.56.0/24 dev eth1
 
