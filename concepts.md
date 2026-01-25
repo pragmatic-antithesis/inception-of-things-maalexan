@@ -174,3 +174,61 @@ Os **Namespaces** organizam Pods, Services e Deployments **dentro do Cluster**.
 - O Control Plane decide, os Nodes executam  
 - Cluster é o limite físico  
 - Namespace é o limite lógico  
+
+===
+
+# K3S e K3D
+
+- K3S: Kubernetes leve para produção ou dev.
+- K3D: K3S dentro de Docker, perfeito para testes locais.
+
+## K3S
+
+- **O que é:** Distribuição leve do Kubernetes, feita pela Rancher, ideal para IoT, desenvolvimento local ou clusters pequenos.
+- **Características principais:**
+  - Binário único e pequeno (~50 MB)
+  - Menos dependências, fácil de instalar
+  - Inclui Containerd como runtime padrão
+  - Suporta ARM (Raspberry Pi, etc.)
+  - Control Plane e Node podem rodar na mesma máquina
+
+
+## K3D
+
+- **O que é:** Ferramenta que roda clusters K3S dentro de containers Docker.
+- **Quando usar:** Para desenvolvimento local rápido, testes de CI/CD ou experimentos com múltiplos clusters.
+- **Vantagens:**
+  - Criação de clusters em segundos
+  - Fácil teardown e recriação
+  - Simula clusters de múltiplos nodes em uma máquina
+
+
+
+
+## ArgoCD
+
+**O que é:**
+
+- Ferramenta de Continuous Delivery (CD) para Kubernetes
+- Baseada em GitOps, ou seja, o estado desejado do cluster é definido em repositórios Git
+
+> 💡 Pense no ArgoCD como um “Git para Kubernetes”: ele garante que o que está no cluster seja exatamente o que está no Git.
+
+**Como funciona:**
+
+1. O desenvolvedor atualiza o código e/ou manifestos Kubernetes no Git
+2. ArgoCD detecta a mudança e aplica automaticamente no cluster
+3. Garante que o estado real do cluster corresponda ao estado desejado no Git
+
+**Benefícios:**
+
+- Automatização total do deploy
+- Auditoria fácil (tudo versionado no Git)
+- Rollback simples para versões anteriores
+- Multi-cluster: gerencia vários clusters a partir de um único ArgoCD
+
+**Componentes principais:**
+
+- **Application:** objeto que representa um app ou serviço
+- **Repository:** onde ficam os manifests Git
+- **Sync:** mecanismo que aplica alterações do Git no cluster

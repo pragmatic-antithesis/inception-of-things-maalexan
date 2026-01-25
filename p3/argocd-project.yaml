@@ -1,0 +1,14 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: dev-project
+  namespace: argocd
+  labels:
+    app: dev
+spec:
+  description: Projeto Argo CD para aplicações de desenvolvimento, controlando quais repositórios e namespaces podem ser usados.
+  sourceRepos:
+    - https://github.com/pragmatic-antithesis/inception-of-things.git
+  destinations:
+    - namespace: dev
+      server: https://kubernetes.default.svc

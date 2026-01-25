@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app1
+  namespace: argocd
+  labels:
+    app: dev
+spec:
+  project: dev-project
+  source:
+    repoURL: https://github.com/pragmatic-antithesis/inception-of-things.git
+    targetRevision: inwagner                    # Branch específica
+    path: "./p3/app"                            # Diretório raiz do repo
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev
+  syncPolicy:
+    automated:
+      prune: true       # Remove recursos que saíram do Git
+      selfHeal: true    # Corrige divergências automaticamente
