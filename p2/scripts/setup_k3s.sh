@@ -13,6 +13,8 @@ until kubectl get nodes >/dev/null 2>&1; do
   sleep 2
 done
 
+ip route replace 192.168.56.0/24 dev eth1
+
 kubectl apply -f /vagrant/confs
 
 service $k3s restart
