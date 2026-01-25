@@ -6,9 +6,7 @@ SERVER = 'inwagnerS'.freeze
 PROVIDER = 'virtualbox'.freeze
 SCRIPT = './scripts/setup_k3s.sh'.freeze
 NETWORK = 'private_network'.freeze
-IPS = {
-  SERVER => '192.168.56.110'
-}.freeze
+IP = '192.168.56.110'.freeze
 BOX = 'generic-x64/alpine319'.freeze
 BOX_VERSION = '4.3.12'.freeze
 
@@ -25,25 +23,12 @@ Vagrant.configure('2') do |config|
 
   config.vm.define SERVER do |server|
     server.vm.hostname = SERVER
-    server.vm.network NETWORK, ip: IPS[SERVER]
+    server.vm.network NETWORK, ip: IP
 
     server.vm.provider PROVIDER do |vbox|
       vm_specs(vbox, SERVER)
     end
-<<<<<<< HEAD:p2-2/Vagrantfile
-    server.vm.provision 'file',
-      source: "./confs/",
-      destination: "/home/vagrant/"
-
-    server.vm.provision PROVISION,
-      path: SCRIPT,
-      env: {
-        'NODE_IP' => IPS[SERVER]
-      }
-=======
     server.vm.provision 'file', source: 'confs/', destination: '/home/vagrant/'
     server.vm.provision 'shell', path: SCRIPT, env: { 'NODE_IP' => IP }
->>>>>>> 1f173726e3df8d282a994d02e9ca84302208b6c7:p2/Vagrantfile
   end
-
 end
