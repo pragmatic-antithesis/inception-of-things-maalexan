@@ -40,9 +40,11 @@ function wait_for_pods {
 # INSTALAÇÕES
 # ===============================
 echo "=== Verificando dependências ==="
+check_install "htpasswd" "sudo apt update && sudo apt install -y apache2-utils"
 check_install "docker" "sudo apt install -y docker.io && sudo systemctl enable docker --now"
-check_install "kubectl" "curl -LO \"https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\" && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl"
 check_install "k3d" "wget -q -O - https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash"
+check_install "kubectl" "curl -LO \"https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\" && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl"
+rm -rf ./kubectl
 
 # ===============================
 # CRIAR CLUSTER K3D
@@ -87,7 +89,7 @@ else
 
   # Definir senha admin customizada
   echo "Definindo senha do admin..."
-  HASH=$(htpasswd -bnBC 10 "" "$ARGOCD_ADMIN_PASSWORD" | tr -d ':\n')
+  HASH=$(htpasswd -bnBC 10 admin "$ARGOCD_ADMIN_PASSWORD" | awk -F: '{print $2}')
   kubectl -n "$ARGOCD_NAMESPACE" patch secret argocd-secret \
     -p "{\"stringData\": {\"admin.password\": \"$HASH\", \"admin.passwordMtime\": \"$(date +%FT%T%Z)\"}}"
 
