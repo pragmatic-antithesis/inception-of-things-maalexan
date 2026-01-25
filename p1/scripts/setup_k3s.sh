@@ -12,5 +12,4 @@ elif [ "$K3S_ROLE" = "worker" ]; then
     k3s="k3s-agent"
 fi
 
-
 service $k3s restart

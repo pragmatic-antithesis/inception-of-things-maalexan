@@ -1,27 +1,39 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: app3
+  name: app3-deployment
+  labels:
+    app: app3
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: app3
+      app: app3-pod
   template:
     metadata:
       labels:
-        app: app3
+        app: app3-pod
     spec:
       containers:
-      - name: app3
-        image: nginx
+      - name: app3-container
+        image: paulbouwer/hello-kubernetes:1.10
+        ports:
+        - containerPort: 8080
+        env:
+        - name: MESSAGE
+          value: "App3: Hello World!"
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: app3
+  name: app3-service
+  labels:
+    app: app3
 spec:
   selector:
-    app: app3
+    app: app3-pod                 # Conecta ao pod correto
   ports:
-  - port: 80
+    - port: 80                    # Porta exposta pelo Service
+      targetPort: 8080            # Porta do container
+  type: ClusterIP
