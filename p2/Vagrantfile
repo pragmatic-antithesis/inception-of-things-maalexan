@@ -1,0 +1,16 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic-x64/alpine319"
+
+  config.vm.define "inwagnerS" do |server|
+    server.vm.hostname = "inwagnerS"
+    server.vm.network "private_network", ip: "192.168.56.110"
+
+    server.vm.provider "virtualbox" do |vbox|
+      vbox.memory = 512
+      vbox.cpus = 1
+      vbox.gui = false
+    end
+
+    server.vm.provision "shell", path: "scripts/setup_k3s.sh"
+  end
+end
