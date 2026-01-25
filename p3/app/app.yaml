@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-deployment
+  labels:
+    app: app-pod
+  namespace: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-pod
+  template:
+    metadata:
+      labels:
+        app: app-pod
+    spec:
+      containers:
+      - name: app-container
+        image: maalexan/app-inwagner:v1       # Criar em: https://hub.docker.com/r/maalexan/app-inwagner
+        ports:
+        - containerPort: 8081
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8081
+          initialDelaySeconds: 10
+          periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-service
+  namespace: dev
+  labels:
+    app: app-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: app-pod
+  ports:
+    - port: 8081
+      targetPort: 8081
