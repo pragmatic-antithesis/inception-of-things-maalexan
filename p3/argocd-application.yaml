@@ -9,7 +9,7 @@ spec:
   project: dev-project
   source:
     repoURL: https://github.com/pragmatic-antithesis/inception-of-things.git
-    targetRevision: main # Branch específica
+    targetRevision: main
     path: "./p3/app"
     directory:
       recurse: true
@@ -18,5 +18,5 @@ spec:
     namespace: dev
   syncPolicy:
     automated:
-      prune: true # Remove recursos que saíram do Git
-      selfHeal: true # Corrige divergências automaticamente
+      prune: true
+      selfHeal: true
