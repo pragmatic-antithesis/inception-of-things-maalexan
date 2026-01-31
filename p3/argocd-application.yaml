@@ -8,7 +8,7 @@ metadata:
 spec:
   project: dev-project
   source:
-    repoURL: https://github.com/pragmatic-antithesis/inception-of-things.git
+    repoURL: https://github.com/pragmatic-antithesis/inception-of-things-maalexan.git
     targetRevision: main
     path: "./p3/app"
     directory:
