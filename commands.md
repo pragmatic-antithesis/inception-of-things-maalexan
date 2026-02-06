@@ -177,3 +177,22 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
 
 k3d cluster stop <tab>
 k3d cluster delete <tab>
+
+# bonus
+
+kubectl delete all --all
+
+
+kubectl config current-context
+kubectl get nodes
+kubectl get pods -A
+kubectl cluster-info
+
+
+helm list -n gitlab
+helm status gitlab -n gitlab
+helm get values gitlab -n gitlab
+kubectl get deployment -n gitlab -o wide
+
+kubectl get pods -n gitlab
+kubectl describe pod <gitlab-webservice-pod> -n gitlab | grep Image
