@@ -1,0 +1,50 @@
+global:
+  edition: ce
+
+  hosts:
+    domain: localhost
+    externalIP: 127.0.0.1
+
+  ingress:
+    class: nginx
+    configureCertmanager: false
+
+  appConfig:
+    artifacts:
+      objectStore:
+        connection:
+          secret: dummy-objectstore
+    lfs:
+      objectStore:
+        connection:
+          secret: dummy-objectstore
+    uploads:
+      objectStore:
+        connection:
+          secret: dummy-objectstore
+    packages:
+      objectStore:
+        connection:
+          secret: dummy-objectstore
+
+nginx-ingress:
+  enabled: false
+
+prometheus:
+  install: false
+
+gitlab-runner:
+  install: false
+
+registry:
+  enabled: false
+
+gitlab:
+  webservice:
+    replicaCount: 1
+
+  toolbox:
+    backups:
+      objectStorage:
+        config:
+          secret: dummy-objectstore

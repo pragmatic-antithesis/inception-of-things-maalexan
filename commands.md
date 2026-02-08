@@ -196,3 +196,27 @@ kubectl get deployment -n gitlab -o wide
 
 kubectl get pods -n gitlab
 kubectl describe pod <gitlab-webservice-pod> -n gitlab | grep Image
+
+commands:
+kubectl config current-context
+kubectl get nodes
+k3d cluster list
+docker ps --format "table {{.Names}}\t{{.Status}}"
+kubectl get pods -n ingress-nginx
+kubectl get svc -n ingress-nginx
+kubectl get ingressclass
+kubectl get ns
+
+# Delete the entire k3d cluster (kills everything inside Kubernetes)
+k3d cluster delete bonus
+
+# Delete the local registry
+k3d registry delete local-registry
+
+# Optional: prune leftover Docker junk
+docker system prune -f
+
+kubectl delete namespace gitlab argocd dev ingress-nginx
+
+
+# stuff goes into ~/.kube
