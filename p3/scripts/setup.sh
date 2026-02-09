@@ -46,7 +46,7 @@ function wait_for_pods {
 # DEPENDENCIES
 # ===============================
 echo "=== Checking Dependencies ==="
-check_install "docker" "sudo apt install -y docker.io && sudo systemctl enable docker --now && sudo groupadd docker && sudo usermod -aG docker $USER"
+check_install "docker" "sudo apt install -y docker.io && sudo systemctl enable docker --now && sudo usermod -aG docker $USER && su - $USER"
 check_install "curl" "sudo apt install curl"
 check_install "kubectl" "curl -LO \"https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\" && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && rm kubectl"
 check_install "k3d" "wget -q -O - https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash"
