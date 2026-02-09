@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/pragmatic-antithesis/inception-of-things-maalexan.git
     targetRevision: main
-    path: "./p3/app"
+    path: "./p3/confs/app"
     directory:
       recurse: true
   destination:

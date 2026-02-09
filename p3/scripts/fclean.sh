@@ -2,61 +2,61 @@
 set -euo pipefail
 
 # ===============================
-# CONFIGURAÇÕES DO USUÁRIO
+# CONFIGS
 # ===============================
 if [ -f ".env" ]; then
   export $(grep -v '^#' .env | xargs)
 else
-  echo ".env não encontrado! Abortando."
+  echo ".env not found! Aborting."
   exit 1
 fi
 
 # ===============================
-# FUNÇÕES AUXILIARES
+# HELPERS
 # ===============================
 function safe_delete_ns {
   local ns=$1
   if kubectl get ns "$ns" &> /dev/null; then
-    echo "Deletando namespace $ns..."
+    echo "Deleting namespace $ns..."
     kubectl delete ns "$ns" --ignore-not-found
   else
-    echo "Namespace $ns não existe, ignorando."
+    echo "Namespace $ns doesn't exist, ignored."
   fi
 }
 
 # ===============================
-# PARAR O CLUSTER
+# STOP CLUSTER
 # ===============================
 if k3d cluster list | grep -q "$CLUSTER_NAME"; then
-  echo "Parando cluster K3d $CLUSTER_NAME..."
+  echo "Stopping k3d cluster $CLUSTER_NAME..."
   k3d cluster stop "$CLUSTER_NAME"
 else
-  echo "Cluster $CLUSTER_NAME não existe."
+  echo "Cluster $CLUSTER_NAME inexistant."
 fi
 
 # ===============================
-# DELETAR O CLUSTER
+# DELETE CLUSTER
 # ===============================
 if k3d cluster list | grep -q "$CLUSTER_NAME"; then
-  echo "Deletando cluster K3d $CLUSTER_NAME..."
+  echo "Removing k3d cluster $CLUSTER_NAME..."
   k3d cluster delete "$CLUSTER_NAME"
 else
-  echo "Cluster $CLUSTER_NAME já foi deletado ou não existe."
+  echo "Cluster $CLUSTER_NAME inexistant"
 fi
 
 # ===============================
-# REMOVER NAMESPACES (opcional)
+# REMOVE NAMESPACES (optional)
 # ===============================
 for ns in "$ARGOCD_NAMESPACE" "$DEV_NAMESPACE"; do
   safe_delete_ns "$ns"
 done
 
 # ===============================
-# LIMPAR CONTEXTOS DO KUBECTL
+# CLEAN KUBECTL CONTEXTS
 # ===============================
-echo "Limpando contextos antigos do kubectl..."
+echo "Cleaning kubectl old contexts..."
 kubectl config delete-context "$CLUSTER_NAME" &> /dev/null || true
 kubectl config unset users."$CLUSTER_NAME-admin" &> /dev/null || true
 kubectl config unset clusters."$CLUSTER_NAME" &> /dev/null || true
 
-echo "=== Teardown concluído! Tudo removido com segurança ==="
+echo "=== Teardown done! Everything safely removed ==="
