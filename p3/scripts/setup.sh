@@ -84,7 +84,7 @@ if kubectl get deployment -n "$ARGOCD_NAMESPACE" argocd-server &> /dev/null; the
   echo "Argo CD already installed"
 else
   echo "Installing Argo CD..."
-  kubectl apply -n "$ARGOCD_NAMESPACE" -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+  kubectl apply --server-side -n "$ARGOCD_NAMESPACE" -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
   wait_for_pods "$ARGOCD_NAMESPACE"
 
