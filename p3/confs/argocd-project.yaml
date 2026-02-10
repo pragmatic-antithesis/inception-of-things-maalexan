@@ -6,7 +6,7 @@ metadata:
   labels:
     app: dev
 spec:
-  description: Projeto Argo CD para aplicações de desenvolvimento, controlando quais repositórios e namespaces podem ser usados.
+  description: Argo CD project for applications, controlling repos and namespaces
   sourceRepos:
     - https://github.com/pragmatic-antithesis/inception-of-things-maalexan.git
   destinations:
