@@ -4,5 +4,5 @@ helm repo update
 helm install gitlab gitlab/gitlab \
   -n gitlab \
   --create-namespace \
-  -f gitlab-values.yaml \
+  -f ../confs/gitlab-values.yaml \
   --timeout 20m
