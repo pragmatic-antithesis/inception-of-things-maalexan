@@ -12,8 +12,8 @@ else
   echo 'ARGOCD_NAMESPACE="argocd"' >> ../.env
   echo 'DEV_NAMESPACE="dev"' >> ../.env
   echo 'ARGOCD_ADMIN_PASSWORD="admin123"' >> ../.env
-  echo 'ARGOCD_PROJECT_YAML="./confs/argocd-project.yaml"' >> ../.env
-  echo 'ARGOCD_APPLICATION_YAML="./confs/argocd-application.yaml"' >> ../.env
+  echo 'ARGOCD_PROJECT_YAML="../confs/argocd-project.yaml"' >> ../.env
+  echo 'ARGOCD_APPLICATION_YAML="../confs/argocd-application.yaml"' >> ../.env
   exit 1
 fi
 
