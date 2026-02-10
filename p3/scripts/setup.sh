@@ -70,9 +70,9 @@ fi
 # ===============================
 for ns in "$ARGOCD_NAMESPACE" "$DEV_NAMESPACE"; do
   if kubectl get ns | grep -q "$ns"; then
-    echo "Namespace $ns já existe"
+    echo "Namespace $ns already exists"
   else
-    echo "Criando namespace $ns..."
+    echo "Creating namespace $ns..."
     kubectl create namespace "$ns"
   fi
 done
