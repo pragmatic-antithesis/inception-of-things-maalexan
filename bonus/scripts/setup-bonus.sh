@@ -61,10 +61,6 @@ wait_for_pods() {
 #################################
 # DEPENDENCIES
 #################################
-for cmd in docker kubectl k3d helm curl htpasswd; do
-  require_cmd "$cmd"
-done
-
 if [ "$#" -eq 1 ]; then
     case $1 in
         "docker")
@@ -93,6 +89,10 @@ if [ "$#" -eq 1 ]; then
     esac
     exit 1
 fi
+
+for cmd in docker kubectl k3d helm curl htpasswd; do
+  require_cmd "$cmd"
+done
 
 #################################
 # REGISTRY
