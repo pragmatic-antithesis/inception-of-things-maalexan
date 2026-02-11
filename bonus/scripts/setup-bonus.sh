@@ -20,14 +20,12 @@ else
   exit 1
 fi
 
-
 #################################
 # HELPERS
 #################################
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
     echo "Missing dependency: $1"
-    echo "You can try to install it with $0 $1"
     exit 1
   }
 }
@@ -81,16 +79,19 @@ if [ "$#" -eq 1 ]; then
         "htpasswd")
             check_install "htpasswd" "sudo apt install -y apache2-utils"
             ;;
+        "git")
+            check_install "git" "sudo apt install -y git"
+            ;;
         *)
             echo "Unknown tool: $1"
-            echo "Available tools: docker, curl, kubectl, k3d, htpasswd, helm"
+            echo "Available tools: docker, curl, kubectl, k3d, htpasswd, helm, git"
             exit 1
             ;;
     esac
     exit 1
 fi
 
-for cmd in docker kubectl k3d helm curl htpasswd; do
+for cmd in docker kubectl k3d helm curl htpasswd git; do
   require_cmd "$cmd"
 done
 
@@ -140,6 +141,61 @@ helm upgrade --install gitlab gitlab/gitlab \
   --timeout 30m
 
 #################################
+# WAIT FOR GITLAB & POPULATE REPO
+#################################
+echo "Waiting for GitLab to be ready..."
+wait_for_pods "$GITLAB_NAMESPACE"
+
+# Get GitLab root password
+GITLAB_PASSWORD=$(kubectl get secret gitlab-gitlab-initial-root-password \
+  -n "$GITLAB_NAMESPACE" \
+  -o jsonpath="{.data.password}" | base64 -d)
+
+echo "GitLab root password: $GITLAB_PASSWORD"
+
+# Port-forward GitLab web interface
+kubectl port-forward -n "$GITLAB_NAMESPACE" svc/gitlab-webservice-default 8080:8080 &
+PF_PID=$!
+sleep 10
+
+#################################
+# CREATE REPOSITORY AND PUSH FROM GITHUB
+#################################
+echo "Creating root/iot.git repository in GitLab..."
+
+# Create the repository via GitLab API
+curl --fail --header "PRIVATE-TOKEN: $GITLAB_PASSWORD" \
+  -X POST "http://localhost:8080/api/v4/projects" \
+  -d "name=iot&visibility=public" \
+  -d "description=Application manifests for Argo CD"
+
+# Clone from GitHub
+echo "Cloning from https://github.com/pragmatic-antithesis/inception-of-things-maalexan.git..."
+git clone https://github.com/pragmatic-antithesis/inception-of-things-maalexan.git /tmp/github-repo
+
+# Clone empty GitLab repo
+echo "Pushing to GitLab..."
+git clone http://root:$GITLAB_PASSWORD@localhost:8080/root/iot.git /tmp/gitlab-repo
+
+# Copy files from GitHub clone to GitLab repo
+cp -r /tmp/github-repo/p3/confs/app/* /tmp/gitlab-repo/ 2>/dev/null || true
+
+# Commit and push to GitLab
+cd /tmp/gitlab-repo
+git add .
+git config --global user.email "root@gitlab.local"
+git config --global user.name "GitLab Root"
+git commit -m "Initial commit: imported from maalexan's repo"
+git push origin main
+cd -
+
+# Cleanup
+kill $PF_PID
+rm -rf /tmp/github-repo /tmp/gitlab-repo
+
+echo "GitLab repository populated from GitHub"
+
+#################################
 # ARGO CD
 #################################
 if ! kubectl get deployment argocd-server -n "$ARGOCD_NAMESPACE" >/dev/null 2>&1; then
@@ -169,6 +225,27 @@ echo "Checking Argo CD health..."
 wait_for_pods "$ARGOCD_NAMESPACE"
 
 #################################
+# CONFIGURE ARGO CD TO TRUST GITLAB
+#################################
+echo "Adding GitLab repository to Argo CD..."
+
+# Wait for Argo CD CLI pod or use kubectl to create repo secret
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-gitlab-iot
+  namespace: $ARGOCD_NAMESPACE
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: git
+  url: http://gitlab.gitlab.svc.cluster.local/root/iot.git
+  insecure: "true"
+  forceHttpBasicAuth: "true"
+EOF
+
+#################################
 # ARGO CD CONFIG (project + app)
 #################################
 kubectl apply -n "$ARGOCD_NAMESPACE" -f "$ARGOCD_PROJECT_YAML"
@@ -180,7 +257,10 @@ kubectl apply -n "$ARGOCD_NAMESPACE" -f "$ARGOCD_APPLICATION_YAML"
 echo "================================="
 echo "Cluster:        $CLUSTER_NAME"
 echo "GitLab ns:      $GITLAB_NAMESPACE"
+echo "GitLab repo:    http://localhost:8080/root/iot"
+echo "GitLab root pw: $GITLAB_PASSWORD"
 echo "Argo CD ns:     $ARGOCD_NAMESPACE"
+echo "Argo CD admin:  admin / $ARGOCD_ADMIN_PASSWORD"
+echo "Argo CD UI:     kubectl port-forward -n argocd svc/argocd-server 8081:443"
 echo "Dev ns:         $DEV_NAMESPACE"
-echo "Safe to rerun."
 echo "================================="
