@@ -6,7 +6,7 @@ global:
     externalIP: 127.0.0.1
 
   ingress:
-    class: nginx
+    class: traefik
     configureCertmanager: false
 
   appConfig:

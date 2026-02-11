@@ -114,28 +114,12 @@ if ! k3d cluster list | awk '{print $1}' | grep -qx "$CLUSTER_NAME"; then
     --agents 2 \
     --registry-use "k3d-$REGISTRY_NAME:$REGISTRY_PORT" \
     -p "8080:80@loadbalancer" \
-    -p "8443:443@loadbalancer" \
-    --k3s-arg "--disable=traefik@server:0"
+    -p "8443:443@loadbalancer"
 else
   echo "Cluster $CLUSTER_NAME already exists"
 fi
 
 kubectl config use-context "k3d-$CLUSTER_NAME"
-
-#################################
-# INGRESS-NGINX
-#################################
-ensure_namespace ingress-nginx
-
-if ! kubectl get deployment ingress-nginx-controller -n ingress-nginx >/dev/null 2>&1; then
-  echo "Installing ingress-nginx"
-  kubectl apply -f \
-    https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.5/deploy/static/provider/cloud/deploy.yaml
-else
-  echo "ingress-nginx already installed"
-fi
-
-wait_for_pods ingress-nginx
 
 #################################
 # CORE NAMESPACES
