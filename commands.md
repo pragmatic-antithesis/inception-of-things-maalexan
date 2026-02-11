@@ -220,3 +220,225 @@ kubectl delete namespace gitlab argocd dev ingress-nginx
 
 
 # stuff goes into ~/.kube
+
+# Bonus Part Testing Guide
+# =========================
+
+# Prerequisites Verification
+# ------------------------
+
+ # Check everything is running
+ k3d cluster list
+ k3d registry list
+ kubectl get nodes
+
+
+# 1. Access GitLab
+# ---------------
+
+ # Port-forward GitLab
+ # In a separate terminal, keep this running
+ kubectl port-forward -n gitlab svc/gitlab-webservice-default 8080:8080
+
+ # Get GitLab root password
+ kubectl get secret gitlab-gitlab-initial-root-password
+ -n gitlab
+ -o jsonpath="{.data.password}"  base64 -d
+
+ # Access GitLab Web UI
+ 1. Open browser: http://localhost:8080
+ 2. Username: root
+ 3. Password: [the password from above]
+
+ # Verify: You should see GitLab's welcome page and the root/iot repository already populated.
+
+
+# 2. Access Argo CD
+# ----------------
+
+ # Port-forward Argo CD
+ # In a separate terminal, keep this running
+ kubectl port-forward -n argocd svc/argocd-server 8081:443
+
+ # Get Argo CD initial password
+ # If you didn't set a custom password
+ kubectl get secret argocd-initial-admin-secret
+ -n argocd
+ -o jsonpath="{.data.password}"  base64 -d
+
+ # Or if you used the script with ARGOCD_ADMIN_PASSWORD="admin123"
+ # Username: admin
+ # Password: admin123
+
+ # Access Argo CD Web UI
+ 1. Open browser: https://localhost:8081
+ 2. Accept the self-signed certificate warning
+ 3. Login with credentials above
+
+ # Verify: You should see the bonus-playground application, but it might be in "Missing" or "OutOfSync" state initially.
+
+
+# 3. Configure Local DNS (/etc/hosts)
+# ----------------------------------
+
+ # Edit /etc/hosts (requires sudo)
+ sudo nano /etc/hosts
+
+ # Add this line
+ 127.0.0.1 bonus.playground.localhost
+
+ # Verify:
+ ping -c 1 bonus.playground.localhost
+ # Should reply from 127.0.0.1
+
+
+# 4. Test the Deployed Application
+# -------------------------------
+
+ # Check if the app is running
+ # Wait for Argo CD to sync (may take 1-2 minutes)
+ kubectl get pods -n dev
+ kubectl get svc -n dev
+ kubectl get ingress -n dev
+
+ # Port-forward the service directly (if Ingress isn't working)
+ # In a separate terminal
+ kubectl port-forward -n dev svc/wil-playground 8888:8888
+
+ # Test the application
+ # Test via port-forward
+ curl http://localhost:8888
+
+ # Expected output:
+ # {"status":"ok", "message": "v1"}
+
+ # Test via Ingress (requires /etc/hosts entry)
+ curl http://bonus.playground.localhost
+
+ # Browser access:
+ # - Via port-forward: http://localhost:8888
+ # - Via Ingress: http://bonus.playground.localhost
+
+
+# 5. Test Version Switching (The Main Demo)
+# ----------------------------------------
+
+ # Step 1: Verify current version
+ # Check the running image version
+ kubectl get deployment -n dev -o yaml | grep image
+
+ # Check the application response
+ curl http://localhost:8888
+ # Should say "v1"
+
+ # Step 2: Clone your GitLab repository
+ # Get GitLab password again if needed
+ GITLAB_PW=$(kubectl get secret gitlab-gitlab-initial-root-password
+ -n gitlab
+ -o jsonpath="{.data.password}"  base64 -d)
+
+ # Clone the repo
+ git clone http://root:$GITLAB_PW@localhost:8080/root/iot.git
+ cd iot
+
+ # Step 3: Switch from v1 to v2
+ # Find the deployment file (may be deployment.yaml or similar)
+ # Change the image tag from v1 to v2
+ sed -i 's/wil42/playground:v1/wil42/playground:v2/g' deployment.yaml
+
+ # Verify the change
+ grep "image:" deployment.yaml
+ # Should show: image: wil42/playground:v2
+
+ # Step 4: Commit and push
+ git add deployment.yaml
+ git commit -m "Switch application to v2"
+ git push origin main
+
+ # Step 5: Watch Argo CD sync
+ # Watch the sync status
+ kubectl get application -n argocd bonus-playground -w
+
+ # Or via Argo CD UI: https://localhost:8081
+ # You should see:
+ # 1. OutOfSync (detected change)
+ # 2. Syncing (deploying new version)
+ # 3. Synced/Healthy (deployment complete)
+
+ # Step 6: Verify v2 is running
+ # Wait for new pod to be ready
+ kubectl get pods -n dev -w
+
+ # Test the application
+ curl http://localhost:8888
+ # Should now say "v2"
+
+ # Check the pod image
+ kubectl get deployment -n dev -o yaml | grep image
+ # Should show v2
+
+ # Step 7: Switch back to v1 (to prove it works both ways)
+ cd iot
+ sed -i 's/wil42/playground:v2/wil42/playground:v1/g' deployment.yaml
+ git add deployment.yaml
+ git commit -m "Switch back to v1"
+ git push origin main
+
+ # Wait for sync and verify
+ curl http://localhost:8888
+ # Should be back to "v1"
+
+
+# 6. Troubleshooting Commands
+# --------------------------
+
+ # Check Argo CD can reach GitLab
+ # Exec into Argo CD repo server
+ kubectl exec -n argocd deploy/argocd-repo-server -it --
+ curl -I http://gitlab.gitlab.svc.cluster.local
+ # Should return HTTP 200
+
+ # Force Argo CD to refresh
+ argocd app sync bonus-playground
+ # Or via kubectl
+ kubectl patch application -n argocd bonus-playground
+ --type merge
+ -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}'
+
+ # Check application logs
+ # Get the pod name
+ POD=$(kubectl get pods -n dev -l app=wil-playground -o jsonpath="{.items[0].metadata.name}")
+
+ # View logs
+ kubectl logs -n dev $POD
+
+ # Delete stuck resources
+ # Force delete Argo CD application if stuck
+ kubectl delete application -n argocd bonus-playground --force --grace-period=0
+
+ # Reapply
+ kubectl apply -n argocd -f ../confs/argocd/application.yaml
+
+
+# 7. Complete Cleanup
+# ------------------
+
+ # From the bonus/scripts directory
+ ./clean.sh
+
+ # Verify cleanup
+ k3d cluster list # Should show no bonus cluster
+ docker ps | grep k3d # Should show only registry container (stopped)
+
+
+# Demo Script (For Defense)
+# ------------------------
+
+ 1. Show infrastructure: kubectl get ns, kubectl get pods -A
+ 2. Show GitLab: port-forward, browser to localhost:8080, show root/iot repo
+ 3. Show Argo CD: port-forward, browser to localhost:8081, show synced app
+ 4. Show running app: curl http://localhost:8888 shows v1
+ 5. Change version: edit deployment.yaml in GitLab repo, commit, push
+ 6. Watch sync: Argo CD UI or kubectl get pods -n dev -w
+ 7. Verify change: curl http://localhost:8888 shows v2
+ 8. Bonus: Switch back to v1
