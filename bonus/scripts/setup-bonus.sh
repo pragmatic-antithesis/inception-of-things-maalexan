@@ -27,8 +27,21 @@ fi
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
     echo "Missing dependency: $1"
+    echo "You can try to install it with $0 $1"
     exit 1
   }
+}
+
+function check_install {
+  local cmd=$1
+  local install_cmd=$2
+
+  if ! command -v "$cmd" &> /dev/null; then
+    echo "Installing $cmd..."
+    eval "$install_cmd"
+  else
+    echo "$cmd already installed"
+  fi
 }
 
 ensure_namespace() {
@@ -46,11 +59,40 @@ wait_for_pods() {
 }
 
 #################################
-# DEPENDENCIES (fail fast)
+# DEPENDENCIES
 #################################
-for cmd in docker kubectl k3d helm curl; do
+for cmd in docker kubectl k3d helm curl htpasswd; do
   require_cmd "$cmd"
 done
+
+if [ "$#" -eq 1 ]; then
+    case $1 in
+        "docker")
+            check_install "docker" "sudo apt install -y docker.io && sudo systemctl enable docker --now && sudo usermod -aG docker $USER && su - $USER"
+            ;;
+        "curl")
+            check_install "curl" "sudo apt install -y curl"
+            ;;
+        "kubectl")
+            check_install "kubectl" "curl -LO \"https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\" && sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && rm kubectl"
+            ;;
+        "k3d")
+            check_install "k3d" "wget -q -O - https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash"
+            ;;
+        "helm")
+            check_install "helm" "curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash"
+            ;;
+        "htpasswd")
+            check_install "htpasswd" "sudo apt install -y apache2-utils"
+            ;;
+        *)
+            echo "Unknown tool: $1"
+            echo "Available tools: docker, curl, kubectl, k3d, htpasswd, helm"
+            exit 1
+            ;;
+    esac
+    exit 1
+fi
 
 #################################
 # REGISTRY

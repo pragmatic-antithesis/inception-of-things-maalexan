@@ -4,8 +4,8 @@ set -euo pipefail
 # ===============================
 # CONFIGS
 # ===============================
-if [ -f ".env" ]; then
-  export $(grep -v '^#' .env | xargs)
+if [ -f "../.env" ]; then
+  export $(grep -v '^#' ../.env | xargs)
 else
   echo ".env not found! Aborting."
   exit 1
