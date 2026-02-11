@@ -97,7 +97,7 @@ done
 #################################
 # REGISTRY
 #################################
-if ! k3d registry list | awk '{print $1}' | grep -qx "$REGISTRY_NAME"; then
+if ! k3d registry list | awk '{print $1}' | grep -qx "k3d-$REGISTRY_NAME"; then
   echo "Creating registry $REGISTRY_NAME"
   k3d registry create "$REGISTRY_NAME" --port "$REGISTRY_PORT"
 else
