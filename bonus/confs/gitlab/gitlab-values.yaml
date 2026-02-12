@@ -1,31 +1,35 @@
 global:
   edition: ce
-
   hosts:
     domain: localhost
     externalIP: 127.0.0.1
-
+    https: false
   ingress:
-    class: traefik
+    enabled: false
     configureCertmanager: false
-
+  minio:
+    enabled: false
+  gitaly:
+    enabled: false
+    external:
+      - name: default
+        host: dummy.local
   appConfig:
     artifacts:
-      objectStore:
-        connection:
-          secret: dummy-objectstore
+      enabled: false
+      connection: {}
     lfs:
-      objectStore:
-        connection:
-          secret: dummy-objectstore
+      enabled: false
+      connection: {}
     uploads:
-      objectStore:
-        connection:
-          secret: dummy-objectstore
+      enabled: false
+      connection: {}
     packages:
-      objectStore:
-        connection:
-          secret: dummy-objectstore
+      enabled: false
+      connection: {}
+
+certmanager:
+  enabled: false
 
 nginx-ingress:
   enabled: false
@@ -42,9 +46,17 @@ registry:
 gitlab:
   webservice:
     replicaCount: 1
-
+  sidekiq:
+    enabled: false
   toolbox:
-    backups:
-      objectStorage:
-        config:
-          secret: dummy-objectstore
+    enabled: false
+  kas:
+    enabled: false
+
+postgresql:
+  persistence:
+    enabled: false
+
+redis:
+  persistence:
+    enabled: false
