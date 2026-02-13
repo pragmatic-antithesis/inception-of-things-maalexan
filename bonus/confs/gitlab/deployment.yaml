@@ -30,6 +30,12 @@ spec:
               value: |
                 external_url 'http://gitlab.gitlab.svc.cluster.local'
                 gitlab_rails['initial_root_password'] = 'gitlaber'
+                postgresql['pg_hba'] = [
+                  { type: 'local', database: 'all', user: 'all', method: 'trust' },
+                  { type: 'host', database: 'all', user: 'all', address: '127.0.0.1/32', method: 'trust' },
+                  { type: 'host', database: 'all', user: 'all', address: '::1/128', method: 'trust' }
+                ]
+                postgresql['trust_local_connections'] = true
                 registry['enable'] = false
                 prometheus['enable'] = false
                 alertmanager['enable'] = false
@@ -40,8 +46,8 @@ spec:
                 puma['worker_processes'] = 1
                 puma['min_threads'] = 1
                 puma['max_threads'] = 2
-                puma['per_worker_max_memory_mb'] = 512
-                sidekiq['max_concurrency'] = 5
+                puma['per_worker_max_memory_mb'] = 1024
+                sidekiq['max_concurrency'] = 2
                 gitlab_workhorse['enable'] = true
                 gitaly['enable'] = true
                 postgresql['enable'] = true
@@ -64,14 +70,17 @@ spec:
             httpGet:
               path: /-/health
               port: 80
-            initialDelaySeconds: 200
+            initialDelaySeconds: 360
             periodSeconds: 60
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /-/readiness
               port: 80
-            initialDelaySeconds: 60
+            initialDelaySeconds: 120
             periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 30
       volumes:
         - name: gitlab-data
           emptyDir: {}
