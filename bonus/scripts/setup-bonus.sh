@@ -14,6 +14,7 @@ else
   echo 'ARGOCD_NAMESPACE="argocd"' >> ../.env
   echo 'DEV_NAMESPACE="dev"' >> ../.env
   echo 'GITLAB_NAMESPACE="gitlab"' >> ../.env
+  echo 'GITLAB_PASSWORD="gitlaber"' >> ../.env
   echo 'ARGOCD_ADMIN_PASSWORD="admin123"' >> ../.env
   echo 'ARGOCD_PROJECT_YAML="../confs/argocd/project.yaml"' >> ../.env
   echo 'ARGOCD_APPLICATION_YAML="../confs/argocd/application.yaml"' >> ../.env
@@ -53,7 +54,7 @@ wait_for_pods() {
     --namespace "$ns" \
     --all \
     --for=condition=Ready \
-    --timeout=15m
+    --timeout=5m
 }
 
 #################################
@@ -73,25 +74,19 @@ if [ "$#" -eq 1 ]; then
         "k3d")
             check_install "k3d" "wget -q -O - https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash"
             ;;
-        "helm")
-            check_install "helm" "curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash"
-            ;;
         "htpasswd")
             check_install "htpasswd" "sudo apt install -y apache2-utils"
             ;;
-        "git")
-            check_install "git" "sudo apt install -y git"
-            ;;
         *)
             echo "Unknown tool: $1"
-            echo "Available tools: docker, curl, kubectl, k3d, htpasswd, helm, git"
+            echo "Available tools: docker, curl, kubectl, k3d, htpasswd"
             exit 1
             ;;
     esac
     exit 1
 fi
 
-for cmd in docker kubectl k3d helm curl htpasswd git; do
+for cmd in docker curl kubectl k3d htpasswd; do
   require_cmd "$cmd"
 done
 
@@ -130,70 +125,53 @@ ensure_namespace "$ARGOCD_NAMESPACE"
 ensure_namespace "$DEV_NAMESPACE"
 
 #################################
-# GITLAB (Helm, idempotent)
+# APPLY GITLAB MANIFESTS
 #################################
-helm repo add gitlab https://charts.gitlab.io/ >/dev/null 2>&1 || true
-helm repo update
+echo "Applying GitLab manifests..."
+kubectl apply -f ../confs/gitlab/namespace.yaml
+kubectl apply -f ../confs/gitlab/configmap.yaml
+kubectl apply -f ../confs/gitlab/deployment.yaml
+kubectl apply -f ../confs/gitlab/service.yaml
 
-helm upgrade --install gitlab gitlab/gitlab \
-  -n "$GITLAB_NAMESPACE" \
-  -f ../confs/gitlab/gitlab-values.yaml \
-  --timeout 30m
+echo "Waiting for GitLab to start (this shouldn't take more than 3 minutes)..."
+wait_for_deployment "$GITLAB_NAMESPACE" "gitlab"
+sleep 180
 
 #################################
-# WAIT FOR GITLAB & POPULATE REPO
+# POPULATE GITLAB REPO
 #################################
-echo "Waiting for GitLab to be ready..."
-wait_for_pods "$GITLAB_NAMESPACE"
+echo "Setting up GitLab repository..."
 
-# Get GitLab root password
-GITLAB_PASSWORD=$(kubectl get secret gitlab-gitlab-initial-root-password \
-  -n "$GITLAB_NAMESPACE" \
-  -o jsonpath="{.data.password}" | base64 -d)
-
-echo "GitLab root password: $GITLAB_PASSWORD"
-
-# Port-forward GitLab web interface
-kubectl port-forward -n "$GITLAB_NAMESPACE" svc/gitlab-webservice-default 8080:8080 &
+kubectl port-forward -n "$GITLAB_NAMESPACE" svc/gitlab 8080:80 &
 PF_PID=$!
 sleep 10
 
-#################################
-# CREATE REPOSITORY AND PUSH FROM GITHUB
-#################################
-echo "Creating root/iot.git repository in GitLab..."
-
-# Create the repository via GitLab API
 curl --fail --header "PRIVATE-TOKEN: $GITLAB_PASSWORD" \
   -X POST "http://localhost:8080/api/v4/projects" \
-  -d "name=iot&visibility=public" \
-  -d "description=Application manifests for Argo CD"
+  -d "name=iot&visibility=public" || {
+    echo "Retrying repository creation..."
+    sleep 30
+    curl --fail --header "PRIVATE-TOKEN: $GITLAB_PASSWORD" \
+      -X POST "http://localhost:8080/api/v4/projects" \
+      -d "name=iot&visibility=public"
+  }
 
-# Clone from GitHub
-echo "Cloning from https://github.com/pragmatic-antithesis/inception-of-things-maalexan.git..."
 git clone https://github.com/pragmatic-antithesis/inception-of-things-maalexan.git /tmp/github-repo
-
-# Clone empty GitLab repo
-echo "Pushing to GitLab..."
 git clone http://root:$GITLAB_PASSWORD@localhost:8080/root/iot.git /tmp/gitlab-repo
 
-# Copy files from GitHub clone to GitLab repo
-cp -r /tmp/github-repo/p3/confs/app/* /tmp/gitlab-repo/ 2>/dev/null || true
+cp -r /tmp/github-repo/p3/confs/app/* /tmp/gitlab-repo/
+cp -r ../confs/k8s/* /tmp/gitlab-repo/k8s/
 
-# Commit and push to GitLab
 cd /tmp/gitlab-repo
 git add .
 git config --global user.email "root@gitlab.local"
 git config --global user.name "GitLab Root"
-git commit -m "Initial commit: imported from maalexan's repo"
+git commit -m "Initial commit"
 git push origin main
 cd -
 
-# Cleanup
 kill $PF_PID
 rm -rf /tmp/github-repo /tmp/gitlab-repo
-
-echo "GitLab repository populated from GitHub"
 
 #################################
 # ARGO CD
@@ -229,7 +207,6 @@ wait_for_pods "$ARGOCD_NAMESPACE"
 #################################
 echo "Adding GitLab repository to Argo CD..."
 
-# Wait for Argo CD CLI pod or use kubectl to create repo secret
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Secret
