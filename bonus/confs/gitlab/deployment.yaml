@@ -16,52 +16,66 @@ spec:
         app: gitlab
     spec:
       containers:
-      - name: gitlab
-        image: gitlab/gitlab-ce:latest
-        ports:
-        - containerPort: 80
-          name: http
-        - containerPort: 443
-          name: https
-        - containerPort: 22
-          name: ssh
-        volumeMounts:
-        - name: gitlab-config
-          mountPath: /etc/gitlab
-        - name: gitlab-data
-          mountPath: /var/opt/gitlab
-        - name: gitlab-logs
-          mountPath: /var/log/gitlab
-        env:
-        - name: GITLAB_OMNIBUS_CONFIG
-          valueFrom:
-            configMapKeyRef:
-              name: gitlab-config
-              key: gitlab.rb
-        livenessProbe:
-          httpGet:
-            path: /-/health
-            port: 80
-          initialDelaySeconds: 60
-          periodSeconds: 60
-        readinessProbe:
-          httpGet:
-            path: /-/readiness
-            port: 80
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        resources:
-          requests:
-            memory: "2Gi"
-            cpu: "500m"
-          limits:
-            memory: "4Gi"
-            cpu: "2"
+        - name: gitlab
+          image: gitlab/gitlab-ce:latest
+          ports:
+            - containerPort: 80
+              name: http
+            - containerPort: 443
+              name: https
+            - containerPort: 22
+              name: ssh
+          env:
+            - name: GITLAB_OMNIBUS_CONFIG
+              value: |
+                external_url 'http://gitlab.gitlab.svc.cluster.local'
+                gitlab_rails['initial_root_password'] = 'gitlaber'
+                registry['enable'] = false
+                prometheus['enable'] = false
+                alertmanager['enable'] = false
+                node_exporter['enable'] = false
+                redis_exporter['enable'] = false
+                postgres_exporter['enable'] = false
+                gitlab_exporter['enable'] = false
+                puma['worker_processes'] = 1
+                puma['min_threads'] = 1
+                puma['max_threads'] = 2
+                puma['per_worker_max_memory_mb'] = 512
+                sidekiq['max_concurrency'] = 5
+                gitlab_workhorse['enable'] = true
+                gitaly['enable'] = true
+                postgresql['enable'] = true
+                redis['enable'] = true
+                sidekiq['enable'] = true
+                puma['enable'] = true
+                gitlab_kas['enable'] = false
+                gitlab_pages['enable'] = false
+                mattermost['enable'] = false
+                praefect['enable'] = false
+                mailroom['enable'] = false
+          volumeMounts:
+            - name: gitlab-data
+              mountPath: /var/opt/gitlab
+            - name: gitlab-logs
+              mountPath: /var/log/gitlab
+            - name: gitlab-config
+              mountPath: /etc/gitlab
+          livenessProbe:
+            httpGet:
+              path: /-/health
+              port: 80
+            initialDelaySeconds: 200
+            periodSeconds: 60
+          readinessProbe:
+            httpGet:
+              path: /-/readiness
+              port: 80
+            initialDelaySeconds: 60
+            periodSeconds: 30
       volumes:
-      - name: gitlab-config
-        configMap:
-          name: gitlab-config
-      - name: gitlab-data
-        emptyDir: {}
-      - name: gitlab-logs
-        emptyDir: {}
+        - name: gitlab-data
+          emptyDir: {}
+        - name: gitlab-logs
+          emptyDir: {}
+        - name: gitlab-config
+          emptyDir: {}

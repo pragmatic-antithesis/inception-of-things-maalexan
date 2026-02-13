@@ -57,6 +57,13 @@ wait_for_pods() {
     --timeout=5m
 }
 
+wait_for_deployment() {
+  local ns="$1"
+  local deployment="$2"
+  echo "Waiting for deployment $deployment in $ns..."
+  kubectl rollout status deployment "$deployment" -n "$ns" --timeout=2m
+}
+
 #################################
 # DEPENDENCIES
 #################################
@@ -129,7 +136,6 @@ ensure_namespace "$DEV_NAMESPACE"
 #################################
 echo "Applying GitLab manifests..."
 kubectl apply -f ../confs/gitlab/namespace.yaml
-kubectl apply -f ../confs/gitlab/configmap.yaml
 kubectl apply -f ../confs/gitlab/deployment.yaml
 kubectl apply -f ../confs/gitlab/service.yaml
 

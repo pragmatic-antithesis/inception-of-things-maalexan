@@ -24,15 +24,8 @@ else
 fi
 
 # ===============================
-# GITLAB (Helm Release)
+# GITLAB (No Helm, just delete namespace)
 # ===============================
-if helm list -n gitlab 2>/dev/null | grep -q gitlab; then
-  echo "Uninstalling GitLab Helm release..."
-  helm uninstall gitlab -n gitlab
-else
-  echo "GitLab Helm release not installed"
-fi
-
 if kubectl get ns gitlab &>/dev/null; then
   echo "Deleting gitlab namespace..."
   kubectl delete ns gitlab --wait=true || true
