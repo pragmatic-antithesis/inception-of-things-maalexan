@@ -165,7 +165,7 @@ echo "Setting up GitLab repository..."
 
 # Find a free port
 FREE_PORT=8081
-while lsof -i :$FREE_PORT &>/dev/null; do
+while lsof -i :$FREE_PORT &>/dev/null; 2>/dev/null; do
   FREE_PORT=$((FREE_PORT + 1))
 done
 echo "Using port $FREE_PORT for GitLab"
@@ -173,6 +173,19 @@ echo "Using port $FREE_PORT for GitLab"
 kubectl port-forward -n "$GITLAB_NAMESPACE" svc/gitlab $FREE_PORT:80 &
 PF_PID=$!
 sleep 5
+echo "Testing login with password: $GITLAB_PASSWORD"
+curl -I --header "PRIVATE-TOKEN: $GITLAB_PASSWORD" http://localhost:$FREE_PORT/api/v4/version
+# Get the actual root password from GitLab logs
+echo "Fetching GitLab root password from logs..."
+GITLAB_PASSWORD=$(kubectl logs -n "$GITLAB_NAMESPACE" deploy/gitlab --tail=100 2>/dev/null | grep -o "Password: [a-zA-Z0-9]*" | head -1 | cut -d' ' -f2)
+
+if [ -z "$GITLAB_PASSWORD" ]; then
+    echo "Could not find password in logs, using default: $GITLAB_PASSWORD"
+    # Default GitLab password if not found
+    GITLAB_PASSWORD="5iveL!fe"
+fi
+
+echo "Using password: $GITLAB_PASSWORD"
 
 # Wait for GitLab API to be fully ready
 echo "Waiting for GitLab API to be ready..."
