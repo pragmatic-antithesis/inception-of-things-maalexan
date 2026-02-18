@@ -105,4 +105,6 @@ docker volume ls | grep -c "k3d" || echo "0"
 echo -n "Kube contexts: "
 kubectl config get-contexts | grep -c "k3d" || echo "0"
 
+rm ../.env
+
 echo "=== FULL CLEANUP COMPLETE ==="

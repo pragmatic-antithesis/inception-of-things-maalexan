@@ -68,24 +68,24 @@ spec:
             - name: gitlab-config
               mountPath: /etc/gitlab
           livenessProbe:
-            httpGet:
-              path: /-/health
+            tcpSocket:
               port: 80
             initialDelaySeconds: 360
             periodSeconds: 60
             failureThreshold: 5
           readinessProbe:
-            httpGet:
-              path: /-/readiness
+            tcpSocket:
               port: 80
-            initialDelaySeconds: 120
-            periodSeconds: 30
+            initialDelaySeconds: 600
+            periodSeconds: 60
             timeoutSeconds: 15
             failureThreshold: 30
       volumes:
         - name: gitlab-data
-          emptyDir: {}
-        - name: gitlab-logs
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: gitlab-data-pvc
         - name: gitlab-config
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: gitlab-config-pvc
+        - name: gitlab-logs
+          emptyDir: {} # ephemeral logs
