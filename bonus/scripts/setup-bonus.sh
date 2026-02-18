@@ -148,6 +148,17 @@ ensure_namespace "$ARGOCD_NAMESPACE"
 ensure_namespace "$DEV_NAMESPACE"
 
 #################################
+# GILAB IMAGE
+#################################
+
+echo "Pre-pulling GitLab latest image..."
+docker pull gitlab/gitlab-ce:latest
+
+echo "Importing image into k3d cluster..."
+k3d image import gitlab/gitlab-ce:latest -c "$CLUSTER_NAME"
+
+
+#################################
 # APPLY GITLAB MANIFESTS
 #################################
 echo "Applying GitLab manifests..."
@@ -174,7 +185,7 @@ kubectl port-forward -n "$GITLAB_NAMESPACE" svc/gitlab $FREE_PORT:80 &
 PF_PID=$!
 sleep 5
 echo "Testing login with password: $GITLAB_PASSWORD"
-curl -I --header "PRIVATE-TOKEN: $GITLAB_PASSWORD" http://localhost:$FREE_PORT/api/v4/version
+curl -I -v http://localhost:$FREE_PORT/api/v4/version
 # Get the actual root password from GitLab logs
 echo "Fetching GitLab root password from logs..."
 GITLAB_PASSWORD=$(kubectl logs -n "$GITLAB_NAMESPACE" deploy/gitlab --tail=100 2>/dev/null | grep -o "Password: [a-zA-Z0-9]*" | head -1 | cut -d' ' -f2)
@@ -192,8 +203,7 @@ echo "Waiting for GitLab API to be ready..."
 max_retries=30
 retry=0
 while [ $retry -lt $max_retries ]; do
-  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --header "PRIVATE-TOKEN: $GITLAB_PASSWORD" \
-    "http://localhost:$FREE_PORT/api/v4/version")
+  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$FREE_PORT/api/v4/version")
 
   if [ "$HTTP_CODE" -eq 200 ]; then
     echo "GitLab API is ready!"
@@ -213,7 +223,7 @@ fi
 
 # Create the project
 echo "Creating root/iot project..."
-CREATE_RESPONSE=$(curl -s --header "PRIVATE-TOKEN: $GITLAB_PASSWORD" \
+CREATE_RESPONSE=$(curl -s curl --user root:$GITLAB_PASSWORD \
   -X POST "http://localhost:$FREE_PORT/api/v4/projects" \
   -d "name=iot&visibility=public")
 
@@ -327,6 +337,8 @@ metadata:
 stringData:
   type: git
   url: http://gitlab.gitlab.svc.cluster.local/root/iot.git
+  username: root
+  password: gitlaber
   insecure: "true"
   forceHttpBasicAuth: "true"
 EOF
