@@ -171,66 +171,106 @@ if [ "$BOOTSTRAP_STAGE" = "gitlab_ready" ]; then
     exit 1
   fi
 
-  # -----------------------------------
-  # Wait for root user to exist in DB
-  # -----------------------------------
-  echo "Waiting for root user to be created..."
+  #################################
+  # CREATE PROJECT
+  #################################
 
-  for i in {1..60}; do
-    EXISTS=$(kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-      gitlab-rails runner "puts User.exists?(username: 'root')" 2>/dev/null || echo "false")
+  if [ "$BOOTSTRAP_STAGE" = "gitlab_ready" ]; then
+    echo "Setting up GitLab repository..."
 
-    if [ "$EXISTS" = "true" ]; then
-      echo "Root user exists."
-      break
+    # -----------------------------------
+    # Get GitLab pod
+    # -----------------------------------
+    POD_NAME=$(kubectl get pod -n "$GITLAB_NAMESPACE" -l app=gitlab \
+      -o jsonpath='{.items[0].metadata.name}')
+
+    if [ -z "$POD_NAME" ]; then
+      echo "GitLab pod not found."
+      exit 1
     fi
 
-    echo "Root user not ready yet..."
-    sleep 5
-  done
+    # -----------------------------------
+    # ALLOWED CHANGES START - Using gitlab-ctl reconfigure
+    # -----------------------------------
+    echo "Running gitlab-ctl reconfigure to ensure root user is created..."
 
-  if [ "$EXISTS" != "true" ]; then
-    echo "Root user did not become ready."
-    exit 1
-  fi
+    # Run reconfigure to ensure all services are properly configured
+    kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
+      gitlab-ctl reconfigure >/dev/null 2>&1
 
-  # -----------------------------------
-  # Ensure root password is set
-  # -----------------------------------
-  echo "Ensuring root password is set..."
-  kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-    gitlab-rails runner "
-      u = User.find_by(username: 'root');
-      u.password = '$GITLAB_PASSWORD';
-      u.password_confirmation = '$GITLAB_PASSWORD';
-      u.save!
-    " >/dev/null
+    echo "Waiting for GitLab to fully initialize after reconfigure..."
+    sleep 30
 
-  # -----------------------------------
-  # Create personal access token via Rails
-  # -----------------------------------
-  echo "Creating personal access token..."
-  GITLAB_TOKEN=$(kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-    gitlab-rails runner "
-      token = User.find_by(username: 'root').personal_access_tokens.create(
-        name: 'bootstrap-token',
-        scopes: [:api],
-        expires_at: 30.days.from_now
-      );
-      token.set_token(SecureRandom.hex(20));
-      token.save!;
-      puts token.token
-    ")
+    # Wait for root user to be created
+    echo "Verifying root user creation..."
+    for i in {1..60}; do
+      EXISTS=$(kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
+        gitlab-rails runner "puts User.exists?(username: 'root')" 2>/dev/null || echo "false")
 
-  if [ -z "$GITLAB_TOKEN" ]; then
-    echo "Failed to create token."
-    exit 1
-  fi
-  echo "Token created: $GITLAB_TOKEN"
+      if [ "$EXISTS" = "true" ]; then
+        echo "Root user exists."
+        break
+      fi
 
-  # -----------------------------------
-  # Create project if it doesn't exist
-  # -----------------------------------
+      echo "Root user not ready yet... (attempt $i/60)"
+      sleep 10
+
+      # If root still doesn't exist after 10 attempts, try reconfigure again
+      if [ $i -eq 10 ]; then
+        echo "Still waiting for root user, running reconfigure again..."
+        kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
+          gitlab-ctl reconfigure >/dev/null 2>&1
+      fi
+    done
+
+    if [ "$EXISTS" != "true" ]; then
+      echo "Root user did not become ready even after reconfigure attempts."
+      exit 1
+    fi
+
+    echo "Setting root password..."
+    kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
+      gitlab-rails runner "
+        u = User.find_by(username: 'root');
+        if u
+          u.password = '$GITLAB_PASSWORD';
+          u.password_confirmation = '$GITLAB_PASSWORD';
+          u.save!
+          puts 'Password updated'
+        else
+          puts 'Root user not found'
+          exit 1
+        end
+      " >/dev/null
+
+    echo "Creating personal access token..."
+    GITLAB_TOKEN=$(kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
+      gitlab-rails runner "
+        u = User.find_by(username: 'root');
+        if u
+          token = u.personal_access_tokens.create(
+            name: 'bootstrap-token',
+            scopes: [:api],
+            expires_at: 30.days.from_now
+          );
+          token.set_token(SecureRandom.hex(20));
+          token.save!;
+          puts token.token
+        else
+          puts ''
+        end
+      ")
+
+    if [ -z "$GITLAB_TOKEN" ]; then
+      echo "Failed to create token."
+      exit 1
+    fi
+    echo "Token created: $GITLAB_TOKEN"
+
+    # -----------------------------------
+    # /END OF ALLOWED CHANGES
+    # -----------------------------------
+
   echo "Checking if project 'iot' exists..."
   EXISTING=$(kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
     gitlab-rails runner "
