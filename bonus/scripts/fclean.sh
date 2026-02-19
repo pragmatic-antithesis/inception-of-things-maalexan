@@ -55,6 +55,8 @@ fi
 # ===============================
 echo "Cleaning Docker artifacts..."
 
+set +e
+
 # Remove any leftover k3d containers
 docker ps -a --format '{{.Names}}' | grep "k3d" | xargs -r docker rm -f
 
@@ -63,6 +65,41 @@ docker volume ls -q | grep "k3d" | xargs -r docker volume rm
 
 # Remove the k3d network
 docker network ls --format '{{.Name}}' | grep "k3d" | xargs -r docker network rm 2>/dev/null || true
+
+
+# ===============================
+# CLEANUP PERSISTENT VOLUMES
+# ===============================
+echo "Cleaning up persistent volumes..."
+
+# Delete any remaining PVCs (in case namespace deletion didn't clean them)
+for ns in argocd gitlab dev; do
+  if kubectl get namespace $ns &>/dev/null 2>&1; then
+    kubectl delete pvc --all -n $ns --force --grace-period=0 2>/dev/null || true
+  fi
+done
+
+# Find and delete any orphaned PVs that might be related to our PVCs
+if kubectl get pv &>/dev/null; then
+  echo "Checking for orphaned persistent volumes..."
+
+  # Get PVs that are Released or Failed and delete them
+  for pv in $(kubectl get pv -o json | jq -r '.items[] | select(.status.phase == "Released" or .status.phase == "Failed") | .metadata.name' 2>/dev/null); do
+    echo "Deleting orphaned PV: $pv"
+    kubectl delete pv $pv --force --grace-period=0 2>/dev/null || true
+
+    # Remove finalizers if needed
+    kubectl patch pv $pv -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
+  done
+
+  # Also delete PVs with specific names that might be from our setup
+  for pv in $(kubectl get pv -o name | grep -E "pvc-.*(gitlab|argocd|dev)" 2>/dev/null); do
+    echo "Deleting PV: $pv"
+    kubectl delete $pv --force --grace-period=0 2>/dev/null || true
+  done
+fi
+
+set -e
 
 # ===============================
 # CLEAN KUBECONFIG
