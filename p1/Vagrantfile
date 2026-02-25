@@ -1,16 +1,5 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
-SERVER = 'inwagnerS'.freeze
-WORKER = 'maalexanSW'.freeze
-PROVIDER = 'virtualbox'.freeze
-PROVISION = 'shell'.freeze
-SCRIPT = './scripts/setup_k3s.sh'.freeze
-NETWORK = 'private_network'.freeze
-IPS = {
-  SERVER => '192.168.56.110',
-  WORKER => '192.168.56.111'
-}.freeze
-
 def vm_specs(vbox, hostname)
   vbox.gui = false
   vbox.name = hostname
