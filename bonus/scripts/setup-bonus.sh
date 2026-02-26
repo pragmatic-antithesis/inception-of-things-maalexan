@@ -19,7 +19,7 @@ REGISTRY_PORT="4242"
 ARGOCD_NAMESPACE="argocd"
 DEV_NAMESPACE="dev"
 GITLAB_NAMESPACE="gitlab"
-GITLAB_PASSWORD="gitlaber"
+GITLAB_PASSWORD="#StrongP455"
 ARGOCD_ADMIN_PASSWORD="admin123"
 ARGOCD_PROJECT_YAML="../confs/argocd/project.yaml"
 ARGOCD_APPLICATION_YAML="../confs/argocd/application.yaml"
@@ -152,18 +152,31 @@ fi
 if [ "$BOOTSTRAP_STAGE" = "gitlab_deployed" ]; then
   wait_for_gitlab_ready "$GITLAB_NAMESPACE"
   echo "Try to create admin (rails takes forever)"
-  kubectl exec -n gitlab deploy/gitlab -- gitlab-rails runner "
-    User.create!(
-      username: 'admin',
-      email: 'admin@local.host',
-      password: $GITLAB_PASSWORD,
-      password_confirmation: $GITLAB_PASSWORD,
-      admin: true,
-      confirmed_at: Time.now,
-      state: 'active'
-    )
-    puts 'Admin created'
+  $ kubectl exec -n gitlab deploy/gitlab -- gitlab-rails runner "
+  org = Organizations::Organization.default_organization
+
+  user = User.new(
+    username: 'rootadmin',
+    name: 'Administrator',
+    email: 'admin@local.host',
+    password: $GITLAB_PASSWORD,
+    password_confirmation: $GITLAB_PASSWORD,
+    admin: true,
+    confirmed_at: Time.now
+  )
+
+  user.build_namespace(
+    path: 'rootadmin',
+    name: 'rootadmin',
+    organization: org
+  )
+
+  user.skip_confirmation!
+  user.save!
+
+  puts 'Admin created'
   "
+
   save_stage "gitlab_ready"
 fi
 
