@@ -205,7 +205,7 @@ Content from app3 (default)
 ```
 
 ## From host machine run
->`echo '192.168.56.110    app1.com app2.com app3.com' | sudo tee -a /etc/hosts/`
+>`echo '192.168.56.110    app1.com app2.com app3.com' | sudo tee -a /etc/hosts`
 ### **From browser:**
 ```
     http://app1.com - app1
