@@ -270,3 +270,17 @@ Image and tag (e.g., studentlogin/iot:v1)
 ```
 ### Now you may log at `localhost:<PORT>` with user `admin` and password `ARGOCD_ADMIN_PASSWORD` from .env file
 ### Changes from the synced project should replicate by argo, redeploying a new pod
+
+# Bonus
+
+### Run the script until it creates the gitlab (it takes a lot of time)
+>`cd script && ./setup-bonus.sh`
+
+### Port forward the gitlab to create user, clone and setup the repo as k8s/app.yaml
+
+### Get the exposed IP from the load balancer
+>`kubectl get svc -n dev app-service`
+### Or traefik
+>`kubectl get svc -n kube-system traefik`
+
+### Curl will work now and the pipeline should monitor and update the changes

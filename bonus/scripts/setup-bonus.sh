@@ -151,7 +151,7 @@ fi
 
 if [ "$BOOTSTRAP_STAGE" = "gitlab_deployed" ]; then
   wait_for_gitlab_ready "$GITLAB_NAMESPACE"
-  echo "Try to create admin (rails takes forever)"
+  echo "Try to create admin (gitlab-rails is slow to process)"
   kubectl exec -n gitlab deploy/gitlab -- gitlab-rails runner "
   require 'shellwords'
   pw = ${GITLAB_PASSWORD@Q}

@@ -7,7 +7,7 @@ spec:
   description: Project limiting apps to dev namespace and a single repo
 
   sourceRepos:
-    - "*" # TODO: try putting GitLab-only
+    - "*"
 
   destinations:
     - namespace: dev
