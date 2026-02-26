@@ -15,13 +15,13 @@ spec:
         app: app1-pod
     spec:
       containers:
-      - name: app1-container
-        image: paulbouwer/hello-kubernetes:1.10
-        ports:
-        - containerPort: 8080
-        env:
-        - name: MESSAGE
-          value: "App1: Hello World!"
+        - name: app1-container
+          image: paulbouwer/hello-kubernetes:1.10
+          ports:
+            - containerPort: 8080
+          env:
+            - name: MESSAGE
+              value: "Hello from app 1!"
 
 ---
 apiVersion: v1
@@ -32,8 +32,8 @@ metadata:
     app: app1
 spec:
   selector:
-    app: app1-pod                 # Conecta ao pod correto
+    app: app1-pod
   ports:
-    - port: 80                    # Porta exposta pelo Service
-      targetPort: 8080            # Porta do container
+    - port: 80
+      targetPort: 8080
   type: ClusterIP

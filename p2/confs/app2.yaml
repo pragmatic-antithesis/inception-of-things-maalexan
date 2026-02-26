@@ -15,13 +15,27 @@ spec:
         app: app2-pod
     spec:
       containers:
-      - name: app2-container
-        image: paulbouwer/hello-kubernetes:1.10
-        ports:
-        - containerPort: 8080
-        env:
-        - name: MESSAGE
-          value: "App2: Hello World!"
+        - name: app2-container
+          image: paulbouwer/hello-kubernetes:1.10
+          ports:
+            - containerPort: 8080
+          env:
+            - name: MESSAGE
+              value: "Hello from app 2!"
+            - name: SHOW_POD_INFO
+              value: "true"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
 
 ---
 apiVersion: v1
@@ -32,8 +46,8 @@ metadata:
     app: app2
 spec:
   selector:
-    app: app2-pod                 # Conecta ao pod correto
+    app: app2-pod
   ports:
-    - port: 80                    # Porta exposta pelo Service
-      targetPort: 8080            # Porta do container
+    - port: 80
+      targetPort: 8080
   type: ClusterIP
