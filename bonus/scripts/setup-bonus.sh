@@ -217,6 +217,7 @@ if [ "$BOOTSTRAP_STAGE" = "gitlab_ready" ]; then
 
   if [ "$PROJECT_EXISTS" = "0" ]; then
     echo "Please create project 'iot' as gitlab user"
+    echo "You may use kubectl port-forward -n gitlab svc/gitlab <PORT>:80 and access via localhost"
     exit 1
   fi
 
