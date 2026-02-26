@@ -204,7 +204,7 @@ Content from app3
 Content from app3 (default)
 ```
 
-## Alternatively, from host machine
+## From host machine run
 >`echo '192.168.56.110    app1.com app2.com app3.com' | sudo tee -a /etc/hosts/`
 ### **From browser:**
 ```
@@ -216,4 +216,4 @@ Content from app3 (default)
 
     http://192.168.56.110 - default (app3)
 ```
-
+### This allows checking the load balancer in use at app2.com (pod name will be displayed)
