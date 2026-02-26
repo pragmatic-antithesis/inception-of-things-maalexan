@@ -19,7 +19,7 @@ REGISTRY_PORT="4242"
 ARGOCD_NAMESPACE="argocd"
 DEV_NAMESPACE="dev"
 GITLAB_NAMESPACE="gitlab"
-GITLAB_PASSWORD="gitlaber"
+GITLAB_PASSWORD="#StrongP455"
 ARGOCD_ADMIN_PASSWORD="admin123"
 ARGOCD_PROJECT_YAML="../confs/argocd/project.yaml"
 ARGOCD_APPLICATION_YAML="../confs/argocd/application.yaml"
@@ -45,6 +45,7 @@ save_stage() {
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
     echo "Missing dependency: $1"
+    exec "../../p3/scripts/setup.sh" "bonus"
     exit 1
   }
 }
@@ -150,6 +151,35 @@ fi
 
 if [ "$BOOTSTRAP_STAGE" = "gitlab_deployed" ]; then
   wait_for_gitlab_ready "$GITLAB_NAMESPACE"
+  echo "Try to create admin (rails takes forever)"
+  kubectl exec -n gitlab deploy/gitlab -- gitlab-rails runner "
+  require 'shellwords'
+  pw = ${GITLAB_PASSWORD@Q}
+
+  org = Organizations::Organization.default_organization
+
+  user = User.new(
+    username: 'rootadmin',
+    name: 'Administrator',
+    email: 'admin@local.host',
+    password: pw,
+    password_confirmation: pw,
+    admin: true,
+    confirmed_at: Time.now
+  )
+
+  user.build_namespace(
+    path: 'rootadmin',
+    name: 'rootadmin',
+    organization: org
+  )
+
+  user.skip_confirmation!
+  user.save!
+
+  puts 'Admin created'
+  "
+
   save_stage "gitlab_ready"
 fi
 
@@ -171,228 +201,78 @@ if [ "$BOOTSTRAP_STAGE" = "gitlab_ready" ]; then
     exit 1
   fi
 
- # -----------------------------------
- # ALLOWED CHANGES START - Pure SQL, no Rails (FIXED)
- # -----------------------------------
- echo "Waiting for database to be ready..."
- for i in {1..30}; do
-   if kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-     gitlab-psql -d gitlabhq_production -c "SELECT 1" >/dev/null 2>&1; then
-     echo "Database is responsive."
-     break
-   fi
-   sleep 5
- done
+  echo "Waiting for database to be ready..."
+  for i in {1..30}; do
+  if kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
+    gitlab-psql -d gitlabhq_production -c "SELECT 1" >/dev/null 2>&1; then
+    echo "Database is responsive."
+    break
+  fi
+  sleep 5
+  done
 
- # Check if root exists
- echo "Checking if root user exists..."
- ROOT_EXISTS=$(kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-   gitlab-psql -d gitlabhq_production -t -c "SELECT COUNT(*) FROM users WHERE username = 'root';" | tr -d ' ')
-
- if [ "$ROOT_EXISTS" = "0" ]; then
-   echo "Root user not found. Creating root user via SQL..."
-
-   # Get the default organization ID
-   DEFAULT_ORG_ID=$(kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-     gitlab-psql -d gitlabhq_production -t -c "SELECT id FROM organizations ORDER BY id LIMIT 1;" | tr -d ' ')
-
-   if [ -z "$DEFAULT_ORG_ID" ]; then
-     DEFAULT_ORG_ID=1  # Fallback to 1 if no organizations exist
-   fi
-
-   # Generate a proper bcrypt hash for the password
-   SALT=$(openssl rand -base64 16 | tr -d '/+' | cut -c1-22)
-   # Use a simpler approach for the hash - GitLab will reset it on first login if needed
-   PASSWORD_HASH="\$2a\$10\$1234567890123456789012uIcBx7m9F0gK8yX3jZ4q5r6s7t8u9v0w1x2y3z4"
-
-   # Insert root user with all required fields
-   kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-     gitlab-psql -d gitlabhq_production -c "
-     INSERT INTO users (
-       username,
-       email,
-       encrypted_password,
-       admin,
-       state,
-       confirmed_at,
-       created_at,
-       updated_at,
-       projects_limit,
-       notification_email,
-       public_email,
-       commit_email,
-       name,
-       unconfirmed_email,
-       confirmation_token,
-       show_whitespace_in_diffs,
-       color_scheme_id,
-       theme_id,
-       organization_id
-     ) VALUES (
-       'root',
-       'root@localhost.localdomain',
-       '$PASSWORD_HASH',
-       true,
-       'active',
-       NOW(),
-       NOW(),
-       NOW(),
-       10000,
-       'root@localhost.localdomain',
-       '',
-       '',
-       'Root User',
-       NULL,
-       NULL,
-       true,
-       1,
-       1,
-       $DEFAULT_ORG_ID
-     ) ON CONFLICT (username) DO NOTHING;"
-
-   echo "Root user creation attempted."
- fi
-
- # Get root user ID
- ROOT_ID=$(kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-   gitlab-psql -d gitlabhq_production -t -c "SELECT id FROM users WHERE username = 'root';" | tr -d ' ')
-
- # Get default organization ID for token
- DEFAULT_ORG_ID=$(kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-   gitlab-psql -d gitlabhq_production -t -c "SELECT id FROM organizations ORDER BY id LIMIT 1;" | tr -d ' ')
-
- if [ -z "$DEFAULT_ORG_ID" ]; then
-   DEFAULT_ORG_ID=1
- fi
-
- # Create personal access token directly in SQL
- echo "Creating personal access token..."
- TOKEN_VALUE=$(openssl rand -hex 20)
- TOKEN_DIGEST=$(echo -n "$TOKEN_VALUE" | sha256sum | awk '{print $1}')
-
- kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-   gitlab-psql -d gitlabhq_production -c "
-   INSERT INTO personal_access_tokens (
-     user_id,
-     organization_id,
-     name,
-     token_digest,
-     scopes,
-     expires_at,
-     created_at,
-     updated_at,
-     impersonation,
-     last_used_at,
-     revoked
-   ) VALUES (
-     $ROOT_ID,
-     $DEFAULT_ORG_ID,
-     'bootstrap-token',
-     '$TOKEN_DIGEST',
-     '---\n- :api\n',
-     NOW() + INTERVAL '30 days',
-     NOW(),
-     NOW(),
-     false,
-     NULL,
-     false
-   );"
-
- GITLAB_TOKEN="$TOKEN_VALUE"
- echo "Token created: $GITLAB_TOKEN"
-
-# Check if project exists
-echo "Checking if project 'iot' exists..."
-PROJECT_EXISTS=$(kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
+  echo "Checking if project 'iot' exists..."
+  PROJECT_EXISTS=$(kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
   gitlab-psql -d gitlabhq_production -t -c "SELECT COUNT(*) FROM projects WHERE name = 'iot';" | tr -d ' ')
 
-if [ "$PROJECT_EXISTS" = "0" ]; then
-  echo "Creating project 'iot'..."
-  # First, let's see what we're working with
-  echo "=== DEBUGGING ==="
-  set +e
-  echo "Root ID: $ROOT_ID"
+  if [ "$PROJECT_EXISTS" = "0" ]; then
+    echo "Please create project 'iot' as gitlab user"
+    echo "You may use kubectl port-forward -n gitlab svc/gitlab <PORT>:80 and access via localhost"
+    exit 1
+  fi
 
-  # Check all namespaces
-  echo "All namespaces:"
-  kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-    gitlab-psql -d gitlabhq_production -c "SELECT id, path, type, owner_id FROM namespaces;"
-
-  # Check specifically for root's namespace
-  echo "Looking for root's namespace:"
-  kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-    gitlab-psql -d gitlabhq_production -c "SELECT id, path, type, owner_id FROM namespaces WHERE owner_id = $ROOT_ID OR path = 'root';"
-
-  # Try a different approach - use the users table to get the namespace_id if it exists
-  echo "Checking if users table has namespace_id column:"
-  kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-    gitlab-psql -d gitlabhq_production -c "\d users" | grep namespace_id
-set -e
-  echo "=== END DEBUG ==="
-  GITLAB_URL="http://gitlab.${GITLAB_NAMESPACE}.svc.cluster.local"
-
-  # Use the token we just created to create a project via API
-  echo "Using GitLab API to create project..."
-  curl -s -X POST "${GITLAB_URL}/api/v4/projects" \
-    -H "Authorization: Bearer ${GITLAB_TOKEN}" \
-    -H "Content-Type: application/json" \
-    -d "{
-      \"name\": \"iot\",
-      \"path\": \"iot\",
-      \"visibility\": \"public\"
-    }" | python3 -m json.tool 2>/dev/null || echo "API creation failed, falling back to SQL..."
-
-  # If API fails, try SQL with minimal fields
-  echo "Falling back to SQL project creation..."
-  kubectl exec -n "$GITLAB_NAMESPACE" deploy/gitlab -- \
-    gitlab-psql -d gitlabhq_production -c "
-    INSERT INTO projects (
-      name,
-      path,
-      namespace_id,
-      creator_id,
-      visibility_level
-    ) VALUES (
-      'iot',
-      'iot',
-      1,
-      2,
-      20
-    );" 2>&1 || echo "SQL insertion failed - project might already exist or schema mismatch"
+  save_stage "project_created"
 fi
- save_stage "project_created"
- # -----------------------------------
- # /END OF ALLOWED CHANGES
- # -----------------------------------
-fi  # <--- THIS WAS MISSING - closes the main if [ "$BOOTSTRAP_STAGE" = "gitlab_ready" ] block
 
-#################################
+# ===============================
 # ARGO CD
-#################################
+# ===============================
+if [ "$BOOTSTRAP_STAGE" = "project_created" ]; then
+    if kubectl get deployment -n "$ARGOCD_NAMESPACE" argocd-server &> /dev/null; then
+    echo "Argo CD already installed"
+    else
+    echo "Installing Argo CD..."
+    kubectl apply --server-side -n "$ARGOCD_NAMESPACE" -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-if ! kubectl get deployment argocd-server -n "$ARGOCD_NAMESPACE" >/dev/null 2>&1; then
-  echo "Installing Argo CD..."
-  kubectl apply --server-side -n "$ARGOCD_NAMESPACE" \
-    -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    wait_for_pods "$ARGOCD_NAMESPACE"
 
-  wait_for_pods "$ARGOCD_NAMESPACE"
+    echo "Configuring Argo CD LoadBalancer..."
+    kubectl patch svc argocd-server -n "$ARGOCD_NAMESPACE" -p '{"spec": {"type": "LoadBalancer"}}'
 
-  kubectl patch svc argocd-server -n "$ARGOCD_NAMESPACE" \
-    -p '{"spec": {"type": "LoadBalancer"}}'
 
-  HASH=$(htpasswd -bnBC 10 "" "$ARGOCD_ADMIN_PASSWORD" | awk -F: '{print $2}')
+    echo "Setting admin password..."
+    HASH=$(htpasswd -bnBC 10 "" "$ARGOCD_ADMIN_PASSWORD" | awk -F: '{print $2}')
+    kubectl -n "$ARGOCD_NAMESPACE" patch secret argocd-secret \
+        -p "{\"stringData\": {\"admin.password\": \"$HASH\", \"admin.passwordMtime\": \"$(date +%FT%T%Z)\"}}"
 
-  kubectl -n "$ARGOCD_NAMESPACE" patch secret argocd-secret \
-    -p "{\"stringData\": {\"admin.password\": \"$HASH\", \"admin.passwordMtime\": \"$(date +%FT%T%Z)\"}}"
+    kubectl patch configmap argocd-cm -n "$ARGOCD_NAMESPACE" -p '{"data":{"timeout.reconciliation": "60s"}}'
+    fi
+
+    # ===============================
+    # HEALTHCHECK ARGO CD
+    # ===============================
+    echo "Checking Argo CD health..."
+    wait_for_pods "$ARGOCD_NAMESPACE"
+
+    # ===============================
+    # ARGO CD PROJECT
+    # ===============================
+    echo "Applying Argo CD project and application..."
+    kubectl apply -f "$ARGOCD_PROJECT_YAML" -n "$ARGOCD_NAMESPACE"
+    kubectl apply -f "$ARGOCD_APPLICATION_YAML" -n "$ARGOCD_NAMESPACE"
+
+    save_stage "config_done"
 fi
-
 #################################
 # DONE
 #################################
-
-echo "================================="
-echo "Stage:          $BOOTSTRAP_STAGE"
-echo "Cluster:        $CLUSTER_NAME"
-echo "GitLab ns:      $GITLAB_NAMESPACE"
-echo "Argo CD ns:     $ARGOCD_NAMESPACE"
-echo "================================="
+if [ "$BOOTSTRAP_STAGE" = "config_done" ]; then
+    echo "================================="
+    echo "Stage:          $BOOTSTRAP_STAGE"
+    echo "Cluster:        $CLUSTER_NAME"
+    echo "GitLab ns:      $GITLAB_NAMESPACE"
+    echo "Argo CD ns:     $ARGOCD_NAMESPACE"
+    echo "================================="
+else
+    echo "Your configuration file is missing or in an unknown state, fix $ENV_FILE or delete it and run this again"
+fi

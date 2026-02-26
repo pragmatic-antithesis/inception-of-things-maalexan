@@ -52,6 +52,11 @@ check_install "kubectl" "curl -LO \"https://dl.k8s.io/release/$(curl -L -s https
 check_install "k3d" "wget -q -O - https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash"
 check_install "htpasswd" "sudo apt install apache2-utils"
 
+if [ "$1" = "bonus" ]; then
+    echo "Installing deps for bonus"
+    exit 0
+fi
+
 # ===============================
 # K3D CLUSTER
 # ===============================
