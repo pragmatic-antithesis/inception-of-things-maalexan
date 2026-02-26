@@ -152,15 +152,18 @@ fi
 if [ "$BOOTSTRAP_STAGE" = "gitlab_deployed" ]; then
   wait_for_gitlab_ready "$GITLAB_NAMESPACE"
   echo "Try to create admin (rails takes forever)"
-  $ kubectl exec -n gitlab deploy/gitlab -- gitlab-rails runner "
+  kubectl exec -n gitlab deploy/gitlab -- gitlab-rails runner "
+  require 'shellwords'
+  pw = ${GITLAB_PASSWORD@Q}
+
   org = Organizations::Organization.default_organization
 
   user = User.new(
     username: 'rootadmin',
     name: 'Administrator',
     email: 'admin@local.host',
-    password: $GITLAB_PASSWORD,
-    password_confirmation: $GITLAB_PASSWORD,
+    password: pw,
+    password_confirmation: pw,
     admin: true,
     confirmed_at: Time.now
   )
