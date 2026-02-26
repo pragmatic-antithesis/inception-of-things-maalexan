@@ -217,3 +217,56 @@ Content from app3 (default)
     http://192.168.56.110 - default (app3)
 ```
 ### This allows checking the load balancer in use at app2.com (pod name will be displayed)
+
+# Part Three - P3
+## Part 3.1 - Initial setup
+>`cd scripts && ./setup.sh`
+
+
+## Part 3.2 - Kube and Argo
+### K3d clusters
+>`k3d cluster list`
+### **Expected output:** 
+```
+Cluster name, server, agents, loadbalancer...
+```
+
+### Namespaces
+`kubectl get ns`
+### **Expected output:**
+```
+ Needs to display 'argocd' and 'dev' among namespaces
+```
+
+### Pods in both namespaces
+>`kubectl get pods -n argocd`  
+>`kubectl get pods -n dev`
+### **Expected output:**
+```
+Relevant pods in 'Running' status
+```
+
+## Part 3.3 - Argo CI/CD
+
+### Check application in dev namespace
+>`kubectl get all -n dev`
+### **Expected output:**
+```
+ Pod, services, readiness, etc.
+```
+
+### Check current image version
+>`kubectl get deployment -n dev -o jsonpath='{.items[*].spec.template.spec.containers[*].image}{"\n"}'`
+### **Expected output:**
+```
+Image and tag (e.g., studentlogin/iot:v1)
+```
+
+### Port forward Argo CD server to access UI
+>`kubectl port-forward svc/argocd-server -n argocd <PORT>:443`
+### **Expected output:**
+```
+"Forwarding from 127.0.0.1:<PORT> -> 8080"
+```
+### Now you may log at `localhost:<PORT>` with user `admin` and password `ARGOCD_ADMIN_PASSWORD` from .env file
+### Changes from the synced project should replicate by argo, redeploying a new pod
