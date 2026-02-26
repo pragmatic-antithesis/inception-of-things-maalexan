@@ -151,6 +151,19 @@ fi
 
 if [ "$BOOTSTRAP_STAGE" = "gitlab_deployed" ]; then
   wait_for_gitlab_ready "$GITLAB_NAMESPACE"
+  echo "Try to create admin (rails takes forever)"
+  kubectl exec -n gitlab deploy/gitlab -- gitlab-rails runner "
+    User.create!(
+      username: 'admin',
+      email: 'admin@local.host',
+      password: $GITLAB_PASSWORD,
+      password_confirmation: $GITLAB_PASSWORD,
+      admin: true,
+      confirmed_at: Time.now,
+      state: 'active'
+    )
+    puts 'Admin created'
+  "
   save_stage "gitlab_ready"
 fi
 
