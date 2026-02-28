@@ -239,8 +239,7 @@ Cluster name, server, agents, loadbalancer...
 ```
 
 ### Pods in both namespaces
->`kubectl get pods -n argocd`  
->`kubectl get pods -n dev`
+>`kubectl get pods -n argocd`
 ### **Expected output:**
 ```
 Relevant pods in 'Running' status
@@ -274,7 +273,7 @@ Image and tag (e.g., studentlogin/iot:v1)
 # Bonus
 
 ### Run the script until it creates the gitlab (it takes a lot of time)
->`cd script && ./setup-bonus.sh`
+>`cd scripts && ./setup-bonus.sh`
 
 ### Port forward the gitlab to create user, clone and setup the repo as k8s/app.yaml
 
