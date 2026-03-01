@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: app-container
-          image: maalexan/iot:v1
+          image: maalexan/iot:latest
           ports:
             - containerPort: 8888
           readinessProbe:
